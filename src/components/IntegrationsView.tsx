@@ -52,25 +52,30 @@ export const IntegrationsView: React.FC<IntegrationsViewProps> = ({
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 relative">
+      {/* Background ambient lighting */}
+      <div className="absolute top-10 right-1/4 w-80 h-80 bg-amber-500/10 rounded-full blur-3xl pointer-events-none"></div>
+
       {/* Header */}
       <div>
-        <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-slate-900">
+        <h1 className="text-2xl sm:text-3xl font-normal text-white" style={{ fontFamily: 'var(--font-serif)' }}>
           External Connectors & Security Policy
         </h1>
-        <p className="text-xs sm:text-sm text-slate-600 mt-1">
-          Connected business tools. Every outbound integration is permanently bound to the execution gate barrier.
+        <p className="text-xs sm:text-sm text-slate-400 mt-1">
+          Connected enterprise systems. Every outbound integration is permanently bound to the execution gate barrier.
         </p>
       </div>
 
-      {/* Safety Policy Banner */}
-      <div className="p-5 rounded-xl bg-amber-50 border border-amber-200 text-amber-900 flex items-start gap-3.5 text-xs">
-        <Lock className="w-5 h-5 text-amber-700 shrink-0 mt-0.5" />
+      {/* Safety Policy Banner - Luxury Obsidian Vault */}
+      <div className="luxury-card p-6 rounded-2xl border-amber-400/40 flex items-start gap-4 text-xs">
+        <div className="w-10 h-10 rounded-xl bg-amber-950/60 border border-amber-500/40 flex items-center justify-center text-amber-400 shrink-0 mt-0.5 shadow-md">
+          <Lock className="w-5 h-5 text-amber-400" />
+        </div>
         <div>
-          <div className="font-bold text-sm text-amber-950">
-            Enforced Policy: No Direct Outbound Writes
+          <div className="font-bold text-sm text-white">
+            Enforced Institutional Policy: No Autonomous Outbound Writes
           </div>
-          <div className="mt-1 leading-relaxed text-amber-900">
+          <div className="mt-1.5 leading-relaxed text-slate-300 font-light">
             All write permissions to HubSpot, SendGrid, Slack, and QuickBooks are isolated. The system architecture prevents any API token from being invoked without an explicit human approval reference recorded in the cryptographic audit log.
           </div>
         </div>
@@ -84,61 +89,61 @@ export const IntegrationsView: React.FC<IntegrationsViewProps> = ({
           return (
             <div
               key={conn.id}
-              className="bg-white border border-slate-200 rounded-xl p-5 hover:border-slate-300 transition-all flex flex-col justify-between"
+              className="luxury-card rounded-2xl p-5 hover:border-amber-400/40 transition-all flex flex-col justify-between"
             >
               <div>
                 <div className="flex items-start justify-between gap-3">
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-lg bg-slate-50 border border-slate-100 flex items-center justify-center shrink-0">
+                  <div className="flex items-center gap-3.5">
+                    <div className="w-11 h-11 rounded-xl bg-slate-950/80 border border-white/10 flex items-center justify-center shrink-0 shadow-inner shadow-black/50">
                       {getIcon(conn.iconName)}
                     </div>
                     <div>
-                      <h3 className="text-base font-bold text-slate-900">
+                      <h3 className="text-base font-bold text-white">
                         {conn.name}
                       </h3>
-                      <span className="text-xs text-slate-500 font-mono">
+                      <span className="text-xs text-amber-200/60 font-mono">
                         Category: {conn.category}
                       </span>
                     </div>
                   </div>
 
-                  <span className="text-xs font-mono font-semibold px-2 py-0.5 rounded bg-emerald-50 text-emerald-800 border border-emerald-200">
+                  <span className="text-[11px] font-mono font-semibold px-2.5 py-0.5 rounded-full bg-emerald-950/60 text-emerald-300 border border-emerald-500/40">
                     Connected
                   </span>
                 </div>
 
-                <div className="mt-5 space-y-2 text-xs">
-                  <div className="flex items-center justify-between text-slate-600">
+                <div className="mt-5 space-y-2.5 text-xs font-mono">
+                  <div className="flex items-center justify-between text-slate-400">
                     <span>Gate Policy:</span>
-                    <span className="font-mono font-semibold text-amber-800">
+                    <span className="font-semibold text-amber-300">
                       HOLD_ALL_WRITES
                     </span>
                   </div>
-                  <div className="flex items-center justify-between text-slate-600">
+                  <div className="flex items-center justify-between text-slate-400">
                     <span>Lifetime Dispatched:</span>
-                    <span className="font-mono tabular-nums text-slate-900 font-medium">
+                    <span className="tabular-nums text-white font-medium">
                       {conn.executedActionsCount} actions
                     </span>
                   </div>
-                  <div className="flex items-center justify-between text-slate-600">
-                    <span>Health Check:</span>
-                    <span className="text-slate-500 font-mono">
+                  <div className="flex items-center justify-between text-slate-400">
+                    <span>Health Ping:</span>
+                    <span className="text-slate-300">
                       {conn.lastPing}
                     </span>
                   </div>
                 </div>
               </div>
 
-              <div className="mt-5 pt-3.5 border-t border-slate-100 flex items-center justify-between">
-                <span className="text-xs text-slate-400 font-mono">
-                  Sandbox active
+              <div className="mt-6 pt-3.5 border-t border-white/10 flex items-center justify-between">
+                <span className="text-xs text-slate-500 font-mono">
+                  Isolated Sandbox Active
                 </span>
                 <button
                   disabled={isTesting}
                   onClick={() => handleTest(conn.id)}
-                  className="px-3 py-1.5 text-xs font-medium text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-md transition-colors flex items-center gap-1.5"
+                  className="px-3.5 py-1.5 text-xs font-medium text-amber-200 bg-slate-900 border border-amber-500/30 hover:border-amber-400 hover:bg-slate-800 rounded-xl transition-all flex items-center gap-1.5 shadow-xs"
                 >
-                  <RefreshCw className={`w-3.5 h-3.5 ${isTesting ? 'animate-spin' : ''}`} />
+                  <RefreshCw className={`w-3.5 h-3.5 text-amber-400 ${isTesting ? 'animate-spin' : ''}`} />
                   <span>{isTesting ? 'Pinging...' : 'Test Connection'}</span>
                 </button>
               </div>

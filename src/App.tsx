@@ -22,6 +22,7 @@ import { AuditTrailView } from './components/AuditTrailView';
 import { BusinessRulesView } from './components/BusinessRulesView';
 import { IntegrationsView } from './components/IntegrationsView';
 import { InlineRecordEditorModal } from './components/InlineRecordEditorModal';
+import { PersonalDashboardView } from './components/PersonalDashboardView';
 
 export default function App() {
   const [currentTab, setCurrentTab] = useState<string>('dashboard');
@@ -147,27 +148,38 @@ export default function App() {
   // User edits a record inline
   const handleSaveRecord = (recordId: string, updatedFields: Record<string, any>, reviewerNotes?: string) => {
     setRecords(prev => {
-      return prev.map(rec => {
+      // 1. Update the target record fields
+      const updatedList = prev.map(rec => {
         if (rec.id !== recordId) return rec;
+        return {
+          ...rec,
+          fields: updatedFields,
+          reviewerNotes: reviewerNotes || rec.reviewerNotes,
+        };
+      });
 
-        // Re-validate this record with updated fields
-        const allSimulated = prev.map(r => r.id === recordId ? { id: r.id, fields: updatedFields } : { id: r.id, fields: r.fields });
+      // 2. Re-validate all active records so cross-record duplicate checks update correctly
+      const candidateList = updatedList
+        .filter(r => !r.reviewerNotes?.startsWith('MERGED:'))
+        .map(r => ({ id: r.id, fields: r.fields }));
+
+      return updatedList.map(rec => {
         const { validationStatus, confidenceScore, issues, stagedActions } = validateSingleRecord(
-          recordId,
-          updatedFields,
-          allSimulated,
+          rec.id,
+          rec.fields,
+          candidateList,
           rules,
           rec.sourceName
         );
 
         return {
           ...rec,
-          fields: updatedFields,
-          validationStatus: issues.length === 0 ? 'corrected' : validationStatus,
+          validationStatus: issues.length === 0 ? (rec.validationStatus === 'exception' ? 'corrected' : rec.validationStatus) : validationStatus,
           confidenceScore,
           issues,
-          reviewerNotes: reviewerNotes || rec.reviewerNotes,
-          stagedActions,
+          stagedActions: rec.reviewStatus === 'approved' 
+            ? stagedActions.map(a => ({ ...a, status: 'approved' }))
+            : stagedActions,
         };
       });
     });
@@ -182,6 +194,66 @@ export default function App() {
       'info'
     );
     setAuditLogs(prev => [editAudit, ...prev]);
+  };
+
+  // User merges a duplicate record into an existing master record
+  const handleMergeRecord = (duplicateRecordId: string, masterRecordId: string, mergeNotes?: string) => {
+    setRecords(prev => {
+      const updatedList = prev.map(rec => {
+        if (rec.id === duplicateRecordId) {
+          return {
+            ...rec,
+            validationStatus: 'corrected' as const,
+            confidenceScore: 100,
+            issues: [],
+            reviewStatus: 'approved' as const,
+            reviewedBy: userRole === 'business_owner' ? 'Alex Vance (Admin)' : 'Sarah Lin (Ops)',
+            reviewedAt: new Date().toISOString(),
+            reviewerNotes: `MERGED: Consolidated into master record ${masterRecordId}. ${mergeNotes || ''}`.trim(),
+            stagedActions: rec.stagedActions.map(a => ({ ...a, status: 'blocked' as const })), // prevent duplicate writes!
+          };
+        }
+        return rec;
+      });
+
+      // Re-run validation on the remaining active records so masterRecordId is no longer flagged as duplicate
+      const activeCandidates = updatedList
+        .filter(r => !r.reviewerNotes?.startsWith('MERGED:'))
+        .map(r => ({ id: r.id, fields: r.fields }));
+
+      return updatedList.map(rec => {
+        if (rec.id === duplicateRecordId) return rec;
+
+        const { validationStatus, confidenceScore, issues, stagedActions } = validateSingleRecord(
+          rec.id,
+          rec.fields,
+          activeCandidates,
+          rules,
+          rec.sourceName
+        );
+
+        return {
+          ...rec,
+          validationStatus: issues.length === 0 ? (rec.validationStatus === 'exception' ? 'corrected' : rec.validationStatus) : validationStatus,
+          confidenceScore,
+          issues,
+          stagedActions: rec.reviewStatus === 'approved' 
+            ? stagedActions.map(a => ({ ...a, status: 'approved' }))
+            : stagedActions,
+        };
+      });
+    });
+
+    const mergeAudit = createAuditEvent(
+      userRole === 'business_owner' ? 'Alex Vance (Admin)' : 'Sarah Lin (Ops)',
+      userRole,
+      'RECORD_MANUALLY_EDITED',
+      'Record',
+      duplicateRecordId,
+      `Resolved duplicate: Merged record ${duplicateRecordId} into master ${masterRecordId}. Duplicate connector writes safely blocked.`,
+      'success'
+    );
+    setAuditLogs(prev => [mergeAudit, ...prev]);
   };
 
   // User approves a single record
@@ -298,6 +370,65 @@ export default function App() {
       'success'
     );
     setAuditLogs(prev => [batchAudit, ...prev]);
+  };
+
+  // Batch approve specific list of record IDs
+  const handleBatchApproveSelected = (recordIds: string[]) => {
+    setRecords(prev => {
+      return prev.map(rec => {
+        if (recordIds.includes(rec.id)) {
+          return {
+            ...rec,
+            reviewStatus: 'approved',
+            reviewedBy: userRole === 'business_owner' ? 'Alex Vance (Admin)' : 'Sarah Lin (Ops)',
+            reviewedAt: new Date().toISOString(),
+            stagedActions: rec.stagedActions.map(a => ({ ...a, status: 'approved' })),
+          };
+        }
+        return rec;
+      });
+    });
+
+    const batchAudit = createAuditEvent(
+      userRole === 'business_owner' ? 'Alex Vance (Admin)' : 'Sarah Lin (Ops)',
+      userRole,
+      'HUMAN_APPROVAL_GRANTED',
+      'Workflow',
+      'BATCH_SELECT',
+      `Batch authorized ${recordIds.length} selected records for execution gate ready-pool.`,
+      'success'
+    );
+    setAuditLogs(prev => [batchAudit, ...prev]);
+  };
+
+  // Batch reject specific list of record IDs
+  const handleBatchRejectSelected = (recordIds: string[], reason: string) => {
+    setRecords(prev => {
+      return prev.map(rec => {
+        if (recordIds.includes(rec.id)) {
+          return {
+            ...rec,
+            reviewStatus: 'rejected',
+            reviewedBy: userRole === 'business_owner' ? 'Alex Vance (Admin)' : 'Sarah Lin (Ops)',
+            reviewedAt: new Date().toISOString(),
+            reviewerNotes: reason,
+            stagedActions: rec.stagedActions.map(a => ({ ...a, status: 'blocked' })),
+          };
+        }
+        return rec;
+      });
+    });
+
+    const batchRejectAudit = createAuditEvent(
+      userRole === 'business_owner' ? 'Alex Vance (Admin)' : 'Sarah Lin (Ops)',
+      userRole,
+      'HUMAN_REJECTION_RECORDED',
+      'Workflow',
+      'BATCH_REJECT',
+      `Batch rejected ${recordIds.length} records. Outbound writes blocked.`,
+      'warning'
+    );
+    setAuditLogs(prev => [batchRejectAudit, ...prev]);
   };
 
   // Authorize & Dispatch from Execution Gate
@@ -435,7 +566,14 @@ export default function App() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-900 flex flex-col">
+    <div className="min-h-screen bg-[#080c14] text-slate-100 flex flex-col selection:bg-amber-500/30 selection:text-amber-200 relative overflow-x-hidden">
+      {/* Background ambient radial luxury lighting mesh */}
+      <div className="fixed inset-0 pointer-events-none z-0">
+        <div className="absolute -top-32 -left-32 w-[600px] h-[600px] bg-amber-500/5 rounded-full blur-[140px]" />
+        <div className="absolute top-1/2 -right-32 w-[550px] h-[550px] bg-amber-600/5 rounded-full blur-[160px]" />
+        <div className="absolute -bottom-32 left-1/3 w-[500px] h-[500px] bg-indigo-900/10 rounded-full blur-[150px]" />
+      </div>
+
       {/* 3-Zone Navigation Header */}
       <TopNav
         currentTab={currentTab}
@@ -447,7 +585,7 @@ export default function App() {
       />
 
       {/* Main Workspace Content Viewport */}
-      <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 py-6 sm:py-8">
+      <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 py-6 sm:py-8 relative z-10">
         {currentTab === 'dashboard' && (
           <DashboardView
             records={records}
@@ -456,6 +594,19 @@ export default function App() {
             connectors={connectors}
             onNavigateTab={setCurrentTab}
             onSelectScenario={handleSelectScenario}
+          />
+        )}
+
+        {currentTab === 'personal' && (
+          <PersonalDashboardView
+            records={records}
+            auditLogs={auditLogs}
+            userRole={userRole}
+            onChangeRole={setUserRole}
+            onOpenRecordEditor={(rec) => setEditingRecord(rec)}
+            onApproveRecord={handleApproveRecord}
+            onRejectRecord={handleRejectRecord}
+            onNavigateTab={setCurrentTab}
           />
         )}
 
@@ -468,8 +619,11 @@ export default function App() {
             onSelectDataset={handleSelectScenario}
             taskSteps={taskSteps}
             records={records}
+            rules={rules}
+            onToggleRule={handleToggleRule}
             onGeneratePlanAndValidate={handleGeneratePlanAndValidate}
             onNavigateToReview={() => setCurrentTab('review')}
+            onOpenRecordEditor={(rec) => setEditingRecord(rec)}
             isProcessing={isProcessing}
           />
         )}
@@ -481,6 +635,8 @@ export default function App() {
             onApproveRecord={handleApproveRecord}
             onRejectRecord={handleRejectRecord}
             onBatchApproveValid={handleBatchApproveValid}
+            onBatchApproveSelected={handleBatchApproveSelected}
+            onBatchRejectSelected={handleBatchRejectSelected}
             onNavigateToGate={() => setCurrentTab('gate')}
             userRole={userRole}
           />
@@ -521,18 +677,23 @@ export default function App() {
         )}
       </main>
 
-      {/* Footer */}
-      <footer className="border-t border-slate-200 bg-white py-4 px-6 text-xs text-slate-500">
-        <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-2">
-          <div className="flex items-center gap-2">
-            <span className="font-semibold text-slate-800">OpsGate AI</span>
-            <span>·</span>
-            <span>Review-First Operations Orchestration</span>
+      {/* Luxury Footer */}
+      <footer className="border-t border-amber-500/20 bg-[#090d16]/90 backdrop-blur-md py-5 px-6 text-xs text-slate-400 relative z-10">
+        <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-3">
+          <div className="flex items-center gap-2.5">
+            <div className="w-5 h-5 rounded bg-gradient-to-br from-amber-200 to-amber-600 text-slate-950 flex items-center justify-center font-bold text-[10px]">
+              OG
+            </div>
+            <span className="font-semibold text-white tracking-wide" style={{ fontFamily: 'var(--font-display)' }}>
+              OpsGate AI
+            </span>
+            <span className="text-amber-500/40">·</span>
+            <span className="text-slate-400 font-light">Institutional Review-First Operations Orchestration</span>
           </div>
-          <div className="flex items-center gap-4 text-slate-400 font-mono text-[11px]">
-            <span>Active Policy: HOLD_ALL_WRITES</span>
-            <span>·</span>
-            <span>Demomode Sandbox</span>
+          <div className="flex items-center gap-4 text-amber-200/60 font-mono text-[11px]">
+            <span className="border border-amber-500/30 px-2 py-0.5 rounded-md bg-amber-950/30">Active Policy: HOLD_ALL_WRITES</span>
+            <span className="text-amber-500/40">·</span>
+            <span>Cryptographic SHA-256 Ledger</span>
           </div>
         </div>
       </footer>
@@ -541,11 +702,14 @@ export default function App() {
       {editingRecord && (
         <InlineRecordEditorModal
           record={editingRecord}
+          allRecords={records}
+          rules={rules}
           onClose={() => setEditingRecord(null)}
           onSaveRecord={handleSaveRecord}
           onApproveRecord={handleApproveRecord}
           onRejectRecord={handleRejectRecord}
           onEscalateRecord={handleEscalateRecord}
+          onMergeRecord={handleMergeRecord}
         />
       )}
     </div>

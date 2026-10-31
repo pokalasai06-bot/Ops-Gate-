@@ -1,6 +1,7 @@
 import React from 'react';
 import { UserRole } from '../types';
-import { Shield, ShieldAlert, ShieldCheck } from 'lucide-react';
+import { Shield, ShieldAlert, ShieldCheck, Terminal, Users } from 'lucide-react';
+import { TEAM_MEMBERS } from '../data/teamMembers';
 
 interface TopNavProps {
   currentTab: string;
@@ -19,8 +20,11 @@ export const TopNav: React.FC<TopNavProps> = ({
   pendingExceptionsCount,
   stagedActionsCount,
 }) => {
+  const currentMember = TEAM_MEMBERS.find(m => m.role === userRole) || TEAM_MEMBERS[0];
+
   const navItems = [
-    { id: 'dashboard', label: 'Dashboard' },
+    { id: 'dashboard', label: 'Overview' },
+    { id: 'personal', label: 'Personal Dashboards' },
     { id: 'studio', label: 'Workflow Studio' },
     { 
       id: 'review', 
@@ -40,78 +44,100 @@ export const TopNav: React.FC<TopNavProps> = ({
   ];
 
   return (
-    <header className="sticky top-0 z-40 bg-white border-b border-slate-200">
-      <div className="max-w-7xl mx-auto flex items-center justify-between gap-8 px-6 py-3.5">
+    <header className="sticky top-0 z-40 bg-[#090d16]/95 backdrop-blur-md border-b border-amber-500/20 shadow-lg shadow-black/40">
+      <div className="max-w-7xl mx-auto flex items-center justify-between gap-4 px-4 sm:px-6 py-3">
         {/* Zone 1: Brand Wordmark */}
         <div className="flex items-center gap-2.5 shrink-0">
-          <div className="w-8 h-8 rounded-lg bg-slate-900 text-white flex items-center justify-center font-bold text-base tracking-tighter">
+          <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-amber-200 via-amber-400 to-amber-700 text-slate-950 flex items-center justify-center font-bold text-sm tracking-widest shadow-md shadow-amber-500/20" style={{ fontFamily: 'var(--font-display)' }}>
             OG
           </div>
           <button 
             onClick={() => onSelectTab('dashboard')}
-            className="text-lg font-bold tracking-tight text-slate-900 hover:text-slate-700 transition-colors whitespace-nowrap text-left"
+            className="text-lg font-bold tracking-wider hover:opacity-90 transition-opacity whitespace-nowrap text-left"
+            style={{ fontFamily: 'var(--font-display)' }}
           >
-            OpsGate AI
+            <span className="text-white">Ops</span>
+            <span className="text-amber-400">Gate</span>
+            <span className="text-xs text-amber-200/60 font-mono tracking-normal ml-1 font-normal">AI</span>
           </button>
-          <span className="text-xs text-slate-400 font-mono hidden lg:inline">
+          <span className="text-[10px] text-amber-200/40 font-mono tracking-widest uppercase hidden xl:inline ml-1 border-l border-amber-500/20 pl-2.5">
             review-first ops
           </span>
         </div>
 
         {/* Zone 2: Navigation Links */}
-        <nav className="hidden md:flex items-center gap-6 text-sm font-medium text-slate-600">
-          {navItems.map((item) => (
-            <button
-              key={item.id}
-              onClick={() => onSelectTab(item.id)}
-              className={`whitespace-nowrap shrink-0 transition-colors py-1 ${
-                currentTab === item.id
-                  ? 'text-slate-900 font-semibold border-b-2 border-slate-900'
-                  : 'hover:text-slate-900'
-              }`}
-            >
-              {item.label}
-            </button>
-          ))}
+        <nav className="hidden lg:flex items-center gap-4 xl:gap-5 text-xs font-medium text-slate-300">
+          {navItems.map((item) => {
+            const isPersonal = item.id === 'personal';
+            return (
+              <button
+                key={item.id}
+                onClick={() => onSelectTab(item.id)}
+                className={`whitespace-nowrap shrink-0 transition-all py-1 flex items-center gap-1.5 ${
+                  currentTab === item.id
+                    ? 'text-amber-300 font-semibold border-b-2 border-amber-400 drop-shadow-[0_0_8px_rgba(212,175,55,0.4)]'
+                    : 'hover:text-amber-200/90 text-slate-400'
+                }`}
+              >
+                {isPersonal && <Users className="w-3.5 h-3.5 text-amber-400" />}
+                <span>{item.label}</span>
+              </button>
+            );
+          })}
         </nav>
 
         {/* Zone 3: Primary Action & Role Control */}
-        <div className="flex items-center gap-3 shrink-0">
+        <div className="flex items-center gap-2.5 shrink-0">
+          {/* Quick jump to Personal Dashboard */}
+          <button
+            onClick={() => onSelectTab('personal')}
+            className={`hidden sm:flex items-center gap-1.5 px-2.5 py-1 text-xs rounded-lg border transition-all ${
+              currentTab === 'personal'
+                ? 'bg-amber-400 text-slate-950 font-bold border-amber-400 shadow-md'
+                : 'bg-slate-900/80 text-amber-200 border-amber-500/30 hover:border-amber-400'
+            }`}
+            title="Open Personal Dashboard"
+          >
+            <span className="w-4 h-4 rounded-full bg-amber-500/20 text-amber-300 flex items-center justify-center text-[10px] font-bold">
+              {currentMember.avatar}
+            </span>
+            <span className="hidden md:inline font-mono text-[11px]">{currentMember.name.split(' ')[0]}</span>
+          </button>
+
           {/* Active Gate Security Status */}
           <div 
             onClick={() => onSelectTab('gate')}
-            className="cursor-pointer hidden sm:flex items-center gap-1.5 px-2.5 py-1 text-xs font-mono rounded bg-amber-50 text-amber-800 border border-amber-200/60 hover:bg-amber-100 transition-colors"
+            className="cursor-pointer hidden sm:flex items-center gap-1.5 px-2.5 py-1 text-xs font-mono rounded-full bg-amber-950/40 text-amber-300 border border-amber-500/40 hover:bg-amber-900/50 transition-all gold-glow"
             title="External actions cannot execute without manual sign-off"
           >
-            <ShieldAlert className="w-3.5 h-3.5 text-amber-600" />
-            <span className="font-semibold">GATE: ARMED</span>
+            <ShieldAlert className="w-3.5 h-3.5 text-amber-400 animate-pulse" />
+            <span className="font-semibold tracking-wider text-[11px]">GATE: ARMED</span>
           </div>
 
           {/* User Role Switcher */}
           <div className="flex items-center text-xs">
-            <span className="text-slate-500 mr-2 hidden sm:inline">Role:</span>
             <select
               aria-label="User Role"
               value={userRole}
               onChange={(e) => onChangeRole(e.target.value as UserRole)}
-              className="bg-slate-100 border border-slate-200 text-slate-800 text-xs rounded-md px-2.5 py-1.5 font-medium focus:outline-none focus:ring-1 focus:ring-slate-900"
+              className="bg-slate-900/90 border border-amber-500/30 text-amber-100 text-xs rounded-lg px-2.5 py-1.5 font-medium focus:outline-none focus:ring-1 focus:ring-amber-400 cursor-pointer shadow-inner shadow-black/60"
             >
-              <option value="business_owner">Business Owner (Admin)</option>
-              <option value="ops_staff">Operations Staff (Reviewer)</option>
-              <option value="ai_agent">AI Agent Inspector</option>
+              <option value="business_owner" className="bg-slate-900 text-white">Alex Vance (Admin)</option>
+              <option value="ops_staff" className="bg-slate-900 text-white">Sarah Lin (Ops)</option>
+              <option value="ai_agent" className="bg-slate-900 text-white">OpsGate AI Agent</option>
             </select>
           </div>
         </div>
       </div>
 
-      {/* Mobile nav row */}
-      <div className="md:hidden flex items-center overflow-x-auto gap-4 px-6 py-2 border-t border-slate-100 text-xs font-medium text-slate-600">
+      {/* Mobile / Compact nav row */}
+      <div className="lg:hidden flex items-center overflow-x-auto gap-4 px-4 py-2 border-t border-amber-500/15 text-xs font-medium text-slate-300 bg-slate-950/60 scrollbar-none">
         {navItems.map((item) => (
           <button
             key={item.id}
             onClick={() => onSelectTab(item.id)}
             className={`whitespace-nowrap shrink-0 py-1 ${
-              currentTab === item.id ? 'text-slate-900 font-semibold' : 'hover:text-slate-900'
+              currentTab === item.id ? 'text-amber-300 font-semibold' : 'hover:text-amber-200 text-slate-400'
             }`}
           >
             {item.label}
