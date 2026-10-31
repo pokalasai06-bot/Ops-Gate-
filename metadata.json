@@ -1,0 +1,6 @@
+{
+  "name": "OpsGate AI - Review-First Operations Orchestration",
+  "description": "Safe, review-first AI workflow automation for small businesses. Converts instructions into structured plans, validates data, gates external actions, and records an immutable audit trail.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
